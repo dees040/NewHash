@@ -10,6 +10,7 @@
 |
 | By dees040 - http://github.com/dees040/NewHash
 |
+| Version:     0.1
 | Last update: march 7 2015
 |
 */
@@ -48,21 +49,28 @@ class Hash
      * set - This function can be called to set settings for the Hash class.
      *
      * @param array $options
+     * @throws Exception
      */
     static public function set(array $options)
     {
         if (array_key_exists('oldHash', $options)) {
-            self::setHashType($options['oldHash']);
+            self::setHashType($options['oldHash'], null);
+        } else {
+            self::setHashType(MD5, null);
         }
 
         if (array_key_exists('newHash', $options)) {
             self::setHashType(null, $options['newHash']);
+        } else {
+            self::setHashType(null, SHA256);
         }
 
         if (array_key_exists('connection', $options) AND $options['connection'] instanceof PDO) {
             self::$connection = $options['connection'];
         } else {
-            self::setConnection();
+            throw new Exception("Hash::set(\$options []) needs a PDO connection, use 'connection' in the options.");
+            // TODO: create a function that set's a propper PDO connection.
+            //self::setConnection();
         }
 
         if (array_key_exists('userTable', $options)) {
@@ -76,12 +84,14 @@ class Hash
      * setHashType - This function will set the old and new hash type
      *
      * @param null $oldHash
-     * @param null $newHash
+     * @param bool $newHash
      */
-    static public function setHashType($oldHash = null, $newHash = null)
+    static public function setHashType($oldHash = null, $newHash = false)
     {
-        self::$oldHash = $oldHash;
-        self::$newHash = $newHash;
+        if (!is_null($oldHash))
+            self::$oldHash = $oldHash;
+        if (!is_null($newHash))
+            self::$newHash = $newHash;
     }
 
 
@@ -92,38 +102,34 @@ class Hash
      * @param $password
      * @return bool|mixed
      */
-    static public function login($userInfo, $password)
+    static public function check($userInfo, $password)
     {
-        $userQuery = self::query(
-            "SELECT * FROM `:userTable` WHERE id = :userInfo OR username = :userInfo OR email = :userInfo",
+        $userStatement = self::query(
+            "SELECT * FROM ".self::$userTable." WHERE id = :userInfo OR username = :userInfo OR email = :userInfo",
             [
-                ':userTable' => self::$userTable,
                 ':userInfo'  => $userInfo,
             ]
         );
-        $user = $userQuery->fetchObject();
+        $user = $userStatement->fetchObject();
 
         if ($user == false OR count($user) == 0) {
             return false;
         }
 
         // If user doesn't have a salt and the password the entered is the same as our old hash, rehash there password.
-        if ($user->password == self::hash(self::$oldHash, $password)) {
-            self::rehash($user->id, $password);
-            return $user;
+        if ($user->password == self::doHash(self::$oldHash, $password)) {
+            return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::hash(self::$oldHash, $password.$user->salt)) {
-            self::rehash($user->id, $password);
-            return $user;
+        else if ($user->password == self::doHash(self::$oldHash, $password.$user->salt)) {
+            return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::hash(self::$newHash, $password)) {
-            self::rehash($user->id, $password);
-            return $user;
+        else if ($user->password == self::doHash(self::$newHash, $password)) {
+            return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::hash(self::$newHash, $password.$user->salt)) {
+        else if ($user->password == self::doHash(self::$newHash, $password.$user->salt)) {
             return $user;
         }
 
@@ -137,7 +143,7 @@ class Hash
      * @param $input
      * @return bool|string
      */
-    private function hash($hashType, $input)
+    static private function doHash($hashType, $input)
     {
         switch($hashType) {
             case '0':
@@ -160,24 +166,25 @@ class Hash
     /**
      * rehash - This function will rehash a password, it will automatically create an unique salt.
      *
-     * @param $userId
+     * @param $user
      * @param $password
      */
-    static public function rehash($userId, $password)
+    static public function rehash($user, $password)
     {
-        $newSalt = self::randomSalt();
-        $passwordWithSalt = $password.$newSalt;
-        $newHashedPassword = self::hash(self::$newHash, $passwordWithSalt);
+        $user->salt = self::randomSalt();
+        $passwordWithSalt = $password.$user->salt;
+        $user->password = self::doHash(self::$newHash, $passwordWithSalt);
 
         self::query(
-            "UPDATE `:userTable` SET password = :password, salt = :salt WHERE id = :userId",
+            "UPDATE ".self::$userTable." SET password = :password, salt = :salt WHERE id = :userId",
             [
-                ':userTable' => self::$userTable,
-                ':password'  => $newHashedPassword,
-                ':salt'      => $newSalt,
-                ':userId'    => $userId,
+                ':password'  => $user->password,
+                ':salt'      => $user->salt,
+                ':userId'    => $user->id,
             ]
         );
+
+        return $user;
     }
 
     /**
@@ -185,7 +192,7 @@ class Hash
      *
      * @return string
      */
-    private function randomSalt()
+    static private function randomSalt()
     {
         return uniqid().mt_rand(10, 99);
     }
@@ -193,11 +200,11 @@ class Hash
     /**
      * setConnection - This function will create and set a PDO connection
      */
-    private function setConnection()
+    static private function setConnection()
     {
         try {
-            # MySQL with PDO_MYSQL
-            self::$connection = new PDO('mysql:host=localhost;dbname=db_name,db_user,db_pass');
+            // MySQL with PDO_MYSQL
+            self::$connection = new PDO('mysql:host=localhost;dbname=database','user','password');
             self::$connection->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
         } catch(PDOException $e) {
             die("Error connecting to database.");
@@ -211,7 +218,7 @@ class Hash
      * @param array $items - The placeholders (Default = empty array)
      * @return bool|\PDOStatement :  Query result
      */
-    private function query($query, $items = array()) {
+    static private function query($query, $items = array()) {
         try {
             $stmt = self::$connection->prepare($query);
             $stmt->execute($items);
