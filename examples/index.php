@@ -1,3 +1,16 @@
+<?php
+
+require_once '../NewHash.php';
+
+Hash::set(['oldHash' => MD5, 'newHash' => SHA256]);
+
+$user = Hash::check('user', 'password');
+
+if ($user !== false) { // You also could use is_object($user)
+    // login $user
+}
+
+?>
 <!doctype html>
 <html lang="en">
     <head>
@@ -5,6 +18,6 @@
         <title>NewHash Example</title>
     </head>
     <body>
-        Soon here will be an example!
+        Example
     </body>
 </html>

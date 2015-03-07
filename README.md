@@ -38,3 +38,14 @@ Documentation
  - ```$userInput``` ('user_input'): The user input info, this can be an: id, email or username.
  - ```$password``` ('password): The user password which has been filled in on the login form.
  - ```return```: Returns user credentials on success and false on failure/user not found.
+ 
+Database
+========
+
+The user table needs to have five columns.
+
+ 1. id, INT AI
+ 2. username, VARCHAR()  
+ 3. password, VARCHAR(128)
+ 4. salt, VARCHAR(15)
+ 5. email, VARCHAR()

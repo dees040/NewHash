@@ -117,19 +117,19 @@ class Hash
         }
 
         // If user doesn't have a salt and the password the entered is the same as our old hash, rehash there password.
-        if ($user->password == self::doHash(self::$oldHash, $password)) {
+        if ($user->password === self::doHash(self::$oldHash, $password)) {
             return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::doHash(self::$oldHash, $password.$user->salt)) {
+        else if ($user->password === self::doHash(self::$oldHash, $password.$user->salt)) {
             return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::doHash(self::$newHash, $password)) {
+        else if ($user->password === self::doHash(self::$newHash, $password)) {
             return self::rehash($user, $password);
         }
         //
-        else if ($user->password == self::doHash(self::$newHash, $password.$user->salt)) {
+        else if ($user->password === self::doHash(self::$newHash, $password.$user->salt)) {
             return $user;
         }
 
