@@ -67,10 +67,15 @@ class Hash
 
         if (array_key_exists('connection', $options) AND $options['connection'] instanceof PDO) {
             self::$connection = $options['connection'];
+        } else if (array_key_exists('connection', $options) AND is_array($options['connection'])) {
+            $connectionVars = ['host', 'database', 'user', 'password'];
+            if(0 === count(array_diff($connectionVars, array_keys($options['connection'])))){
+                self::setConnection($options['connection']['host'], $options['connection']['database'], $options['connection']['user'], $options['connection']['password']);
+            } else {
+                throw new Exception("Hash::set(\$options []) needs a PDO connection, use 'connection' in the options.");
+            }
         } else {
             throw new Exception("Hash::set(\$options []) needs a PDO connection, use 'connection' in the options.");
-            // TODO: create a function that set's a propper PDO connection.
-            //self::setConnection();
         }
 
         if (array_key_exists('userTable', $options)) {
@@ -120,15 +125,15 @@ class Hash
         if ($user->password === self::doHash(self::$oldHash, $password)) {
             return self::rehash($user, $password);
         }
-        //
+        // If user has a salt but an old hash, rehash and resalt password
         else if ($user->password === self::doHash(self::$oldHash, $password.$user->salt)) {
             return self::rehash($user, $password);
         }
-        //
+        // If user has a new hash but no salt, rehash password and create salt
         else if ($user->password === self::doHash(self::$newHash, $password)) {
             return self::rehash($user, $password);
         }
-        //
+        // If user has a new hash plus salt and the password equals the given password, return the user object.
         else if ($user->password === self::doHash(self::$newHash, $password.$user->salt)) {
             return $user;
         }
@@ -199,12 +204,17 @@ class Hash
 
     /**
      * setConnection - This function will create and set a PDO connection
+     *
+     * @param string $host
+     * @param string $database
+     * @param string $user
+     * @param string $password
      */
-    static private function setConnection()
+    static private function setConnection($host = 'localhost', $database = 'database', $user = 'root', $password = '')
     {
         try {
             // MySQL with PDO_MYSQL
-            self::$connection = new PDO('mysql:host=localhost;dbname=database','user','password');
+            self::$connection = new PDO('mysql:host='.$host.';dbname='.$database, $user, $password);
             self::$connection->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
         } catch(PDOException $e) {
             die("Error connecting to database.");

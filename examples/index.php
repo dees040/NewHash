@@ -7,7 +7,7 @@ Hash::set(['oldHash' => MD5, 'newHash' => SHA256]);
 $user = Hash::check('user', 'password');
 
 if ($user !== false) { // You also could use is_object($user)
-    // login $user
+    // login the $user
 }
 
 ?>

@@ -49,3 +49,10 @@ The user table needs to have five columns.
  3. password, VARCHAR(128)
  4. salt, VARCHAR(15)
  5. email, VARCHAR()
+
+TODO
+====
+
+ 1. Specify database connection settings. With this you don't need to set a PDO connection, you can just specify the database credentials en the code will create a new PDO object for you.
+ 2. Just hash a password. This function just will hash a password, so you don't need to check it. This can be used on user registration.
+ 3. Add beter documenation.
